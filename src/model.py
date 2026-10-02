@@ -21,7 +21,7 @@ def load_dataset(split, shuffle=False):
         DATA_DIR / split,
         class_names=["no_attack", "attack"],  # hier die namen der unterornder angebe
         label_mode="int",                     # zahlenformat hier 0 und 1
-        color_mode="grayscale",               # farbe ja | nein?
+        color_mode="rgb",                     # EfficientNetB0 nutzt RGB-Bilder mit 3 Kanaelen.
         image_size=(515, 600),                # selbe größe wie images (Höhe, Breite)
         batch_size=None,                      # erst bei fit definieren
         shuffle=shuffle,                      # shuffeln
@@ -33,7 +33,7 @@ val_ds = load_dataset("val")
 test_ds = load_dataset("test")
 
 # Shapes nach der Umwandlung in Arrays:
-# train_images.shape → (1679, 515, 600, 1)
+# train_images.shape → (1679, 515, 600, 3)
 # train_labels.shape → (1679, 1)
 
 
@@ -43,7 +43,7 @@ import numpy as np
 
 # Mit Arrays kann die Batchgröße später direkt in fit() angegeben werden.
 def dataset_to_arrays(dataset):
-    images = np.empty((len(dataset), 515, 600, 1), dtype=np.float32)
+    images = np.empty((len(dataset), 515, 600, 3), dtype=np.float32)
     labels = np.empty((len(dataset), 1), dtype=np.float32)
     for index, (image, label) in enumerate(dataset.as_numpy_iterator()):
         images[index] = image
@@ -58,8 +58,6 @@ val_images, val_labels = dataset_to_arrays(val_ds)
 
 # %% Modell aufbauen
 
-import tensorflow as tf
-
 # vortrainiertes Netz in varibale "backbone" gespeichert
 backbone = keras.applications.EfficientNetB0(
     weights="imagenet",  # imagenet hatt 1.000 klassen anders als die 10 CIFAR challenge
@@ -70,14 +68,7 @@ backbone.trainable = False
 
 model = keras.Sequential([
     
-    keras.Input(shape=(515, 600, 1)),
-
-    # Den Grauwertkanal dreimal kopieren; Höhe und Breite bleiben erhalten.
-    keras.layers.Lambda(
-        lambda images: tf.image.grayscale_to_rgb(images),
-        output_shape=(515, 600, 3),
-        name="grayscale_to_rgb",
-    ),
+    keras.Input(shape=(515, 600, 3)),
 
     backbone,
 
